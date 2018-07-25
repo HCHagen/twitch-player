@@ -7,6 +7,9 @@ BUILD_TIME=$(shell date +%s)
 
 CLIENT_ID="c19o8hor03fsa23cywutub8pu82ovo"
 
+install:
+	go install -tags netgo -ldflags "-X main.appVersion=${SEMVER} -X main.appBuildTime=${BUILD_TIME} -X main.appBuildUser=${USER} -X main.appClientId=${CLIENT_ID}"
+
 build:
 	go build -tags netgo -ldflags "-X main.appVersion=${SEMVER} -X main.appBuildTime=${BUILD_TIME} -X main.appBuildUser=${USER} -X main.appClientId=${CLIENT_ID}"
 

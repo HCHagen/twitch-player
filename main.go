@@ -136,7 +136,7 @@ func onStream(ctx *cli.Context) error {
 	}
 
 	if streamData.Stream.Id == 0 {
-		return fmt.Errorf("No channel found with name %s", ctx.Args()[0])
+		return fmt.Errorf("No online stream found for channel %s", ctx.Args()[0])
 	}
 
 	uris, err := twitchClient().GetStreamUrls(streamData.Stream.Channel.Name)
