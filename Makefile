@@ -23,4 +23,4 @@ check:
 	go test `go list ./...`
 
 deps:
-	@echo "Depends on libvlc"
+	@echo "Depends on libvlc (libvlc-dev libvlc-bin vlc-plugin-base vlc-plugin-video-output)"
