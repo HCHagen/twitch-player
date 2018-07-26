@@ -12,8 +12,17 @@ type vlcPlayer struct {
 	loadedMedia *vlc.Media
 }
 
-func NewVlcPlayer() (Player, error) {
-	if err := vlc.Init("--quiet"); err != nil {
+func NewVlcPlayer(aout, vout string) (Player, error) {
+	var params = []string{
+		"--quiet",
+	}
+	if aout != "" {
+		params = append(params, fmt.Sprintf("--aout=%s", aout))
+	}
+	if vout != "" {
+		params = append(params, fmt.Sprintf("--vout=%s", vout))
+	}
+	if err := vlc.Init(params...); err != nil {
 		return nil, err
 	}
 

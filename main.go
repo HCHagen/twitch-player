@@ -23,6 +23,7 @@ var (
 		return nil
 	}
 
+	aout, vout  string
 	mediaPlayer func() player.Player = func() func() player.Player {
 		var p player.Player
 		var err error
@@ -31,7 +32,7 @@ var (
 				return p
 			}
 
-			p, err = player.NewVlcPlayer()
+			p, err = player.NewVlcPlayer(aout, vout)
 			if err != nil {
 				fmt.Printf("Error initializing media player: %s\n", err.Error())
 				os.Exit(1)
@@ -76,13 +77,26 @@ func main() {
 
 	app.Commands = []cli.Command{
 		{
-			Name:   "stream",
+			Name: "stream",
+			Before: func(ctx *cli.Context) error {
+				aout = ctx.String("aout")
+				vout = ctx.String("vout")
+				return nil
+			},
 			Usage:  "Play stream from channel",
 			Action: onStream,
 			Flags: []cli.Flag{
 				cli.BoolFlag{
 					Name:  "fullscreen,f",
 					Usage: "Run in fullscreen",
+				},
+				cli.StringFlag{
+					Name:  "aout,a",
+					Usage: "Audio output device",
+				},
+				cli.StringFlag{
+					Name:  "vout,v",
+					Usage: "Video output device",
 				},
 			},
 		},
@@ -189,9 +203,16 @@ func onStream(ctx *cli.Context) error {
 	}
 
 	sigchan := make(chan os.Signal)
-	signal.Notify(sigchan, syscall.SIGINT, syscall.SIGTERM)
-	<-sigchan
-	fmt.Println("Stream done!")
+	signal.Notify(sigchan, syscall.SIGABRT, syscall.SIGINT, syscall.SIGTERM)
+	sig := <-sigchan
+	switch sig {
+	case syscall.SIGABRT:
+		fmt.Println("Stream aborted!")
+	case syscall.SIGINT:
+		fmt.Println("Stream interrupted!")
+	case syscall.SIGTERM:
+		fmt.Println("Stream terminated!")
+	}
 
 	return nil
 }
