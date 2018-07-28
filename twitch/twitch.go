@@ -213,7 +213,7 @@ func (c *twitchClient) GetFeaturedList(num int) (lr FeaturedListResult, err erro
 }
 
 func (c *twitchClient) GetStreamList(game string, num int) (lr StreamListResult, err error) {
-	req, err := http.NewRequest("GET", fmt.Sprintf(ListGameStreamsUrl, game, num), nil)
+	req, err := http.NewRequest("GET", fmt.Sprintf(ListGameStreamsUrl, url.QueryEscape(game), num), nil)
 	if err != nil {
 		return lr, err
 	}
