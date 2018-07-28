@@ -1,8 +1,61 @@
 package twitch
 
 import (
+	"fmt"
 	"time"
 )
+
+type GameInfo struct {
+	Game     Game   `json:"game"`
+	Viewers  uint64 `json:viewers"`
+	Channels uint64 `json:channels"`
+}
+
+type GameListResult struct {
+	Total uint64     `json:"_total"`
+	Games []GameInfo `json:"top"`
+}
+
+type Featured struct {
+	Image     string `json:"image"`
+	Priority  uint64 `json:"priority"`
+	Scheduled bool   `json:"scheduled"`
+	Sponsored bool   `json:"sponsored"`
+	Stream    Stream `json:"stream"`
+	Text      string `json:"text"`
+	Title     string `json:"title"`
+}
+
+type FeaturedListResult struct {
+	Featured []Featured `json:"featured"`
+}
+
+type StreamListResult struct {
+	Total   uint64   `json:"_total"`
+	Streams []Stream `json:"streams"`
+}
+
+type ErrorResponse struct {
+	error
+	StatusCode uint64 `json:"status"`
+	Status     string `json:"error"`
+	Message    string `json:"message"`
+}
+
+type ChannelSearchResult struct {
+	Total    uint64    `json:"_total"`
+	Channels []Channel `json:"channels"`
+}
+
+type GameSearchResult struct {
+	Games []Game `json:"games"`
+}
+
+type StreamSearchResult StreamListResult
+
+func (e ErrorResponse) Error() string {
+	return fmt.Sprintf("HTTP %d - %s: %s", e.StatusCode, e.Status, e.Message)
+}
 
 type Stream struct {
 	Id          uint64    `json:"_id"`
@@ -14,6 +67,15 @@ type Stream struct {
 	Created     time.Time `json:"created_at"`
 	IsPlaylist  bool      `json:"is_playlist"`
 	Channel     Channel   `json:"channel"`
+}
+
+type Game struct {
+	Name          string `json:"name"`
+	Popularity    uint64 `json:"popularity"`
+	Id            uint64 `json:"_id"`
+	GiantbombId   uint64 `json:"giantbomb_id"`
+	LocalizedName string `json:"localized_name"`
+	Locale        string `json:"locale"`
 }
 
 type Channel struct {
@@ -34,6 +96,11 @@ type Channel struct {
 	Url                 string    `json:"url"`
 	Views               uint64    `json:"views"`
 	Followers           uint64    `json:"followers"`
+
+	BroadcasterType string `json:"broadcaster_type,omitempty"`
+	Description     string `json:"description,omitempty"`
+	PrivateVideo    bool   `json:"private_video,omitempty"`
+	PrivacyOptions  bool   `json:"privacy_options_enabled,omitempty"`
 }
 
 type Links struct {

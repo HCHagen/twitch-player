@@ -10,16 +10,6 @@ import (
 	"golang.org/x/net/http2"
 )
 
-type StatusError struct {
-	error
-	Code int
-	Err  error
-}
-
-func (se StatusError) Error() string {
-	return se.Err.Error()
-}
-
 func newDialer() func(context.Context, string, string) (net.Conn, error) {
 	return (&net.Dialer{
 		Timeout:   30 * time.Second,

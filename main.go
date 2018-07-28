@@ -4,10 +4,8 @@ import (
 	"bufio"
 	"fmt"
 	"os"
-	"os/signal"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/urfave/cli"
@@ -18,6 +16,9 @@ import (
 
 var (
 	DefaultTwitchHttpTimeout = 20 * time.Second
+	DefaultChannelResultLen  = 5
+	DefaultGameResultLen     = 25
+	DefaultStreamResultLen   = 30
 
 	mediaPlayerCloser func() error = func() error {
 		return nil
@@ -101,10 +102,26 @@ func main() {
 			},
 		},
 		{
+			Name:   "games",
+			Usage:  "Display games",
+			Action: onListGames,
+			Flags: []cli.Flag{
+				cli.IntFlag{
+					Name:  "number,n",
+					Usage: "Number of channels to list",
+					Value: DefaultGameResultLen,
+				},
+			},
+		},
+		{
 			Name:   "list",
 			Usage:  "List stream channels",
-			Action: onList,
+			Action: onListStreams,
 			Flags: []cli.Flag{
+				cli.BoolFlag{
+					Name:  "featured,f",
+					Usage: "List featured channels",
+				},
 				cli.StringFlag{
 					Name:  "game,g",
 					Usage: "Game to list channels for",
@@ -112,17 +129,27 @@ func main() {
 				cli.IntFlag{
 					Name:  "number,n",
 					Usage: "Number of channels to list",
+					Value: DefaultStreamResultLen,
 				},
 			},
 		},
 		{
 			Name:   "search",
-			Usage:  "Search for channels",
+			Usage:  "Search for streams",
 			Action: onSearch,
 			Flags: []cli.Flag{
+				cli.BoolFlag{
+					Name:  "channel,c",
+					Usage: "Search for channels rather than streams",
+				},
+				cli.BoolFlag{
+					Name:  "game,g",
+					Usage: "Search for games rather than streams",
+				},
 				cli.IntFlag{
 					Name:  "number,n",
 					Usage: "Number of results to list",
+					Value: DefaultChannelResultLen,
 				},
 			},
 		},
@@ -139,45 +166,60 @@ func main() {
 	}
 }
 
-func onStream(ctx *cli.Context) error {
-	if ctx.NArg() != 1 {
-		return fmt.Errorf("Please provide a channel name")
+func printChannels(channels []twitch.Channel) {
+	for _, channel := range channels {
+		fmt.Printf("[%s] %s (id %d) last played: %s (%s)\n", channel.Name, channel.DisplayName, channel.Id, channel.Game, channel.Updated)
 	}
+}
 
-	streamData, err := twitchClient().GetStreamData(ctx.Args()[0])
-	if err != nil {
-		return err
+func printGamesInfo(games []twitch.GameInfo) {
+	for _, game := range games {
+		fmt.Printf("[%s] %s has %d viewers on %d channels\n", game.Game.Name, game.Game.LocalizedName, game.Viewers, game.Channels)
 	}
+}
 
-	if streamData.Stream.Id == 0 {
-		return fmt.Errorf("No online stream found for channel %s", ctx.Args()[0])
+func printGames(games []twitch.Game) {
+	for _, game := range games {
+		fmt.Printf("[%s] %s (id %d)\n", game.Name, game.LocalizedName, game.Id)
 	}
+}
 
-	uris, err := twitchClient().GetStreamUrls(streamData.Stream.Channel.Name)
-	if err != nil {
-		return err
+func printFeatured(featured []twitch.Featured) {
+	for _, stream := range featured {
+		fmt.Printf("[%s] %s playing %s for %d viewers: %s\n",
+			stream.Stream.Channel.Name,
+			stream.Stream.Channel.DisplayName,
+			stream.Stream.Game,
+			stream.Stream.Viewers,
+			stream.Title,
+		)
 	}
-	fmt.Printf("\n%s playing %s for %d viewers: %s\n\n",
-		streamData.Stream.Channel.DisplayName,
-		streamData.Stream.Channel.Game,
-		streamData.Stream.Viewers,
-		streamData.Stream.Channel.Status,
-	)
-	for i, uri := range uris {
-		fmt.Printf("[%d]: %s (%s, %dkbps)\n", i, uri.Resolution, uri.Quality, uri.Bandwidth/1024)
-	}
+}
 
+func printStreams(streams []twitch.Stream) {
+	for _, stream := range streams {
+		fmt.Printf("[%s] %s playing %s for %d viewers: %s\n",
+			stream.Channel.Name,
+			stream.Channel.DisplayName,
+			stream.Game,
+			stream.Viewers,
+			stream.Channel.Status,
+		)
+	}
+}
+
+func getNumericInput(prompt string, max int) int {
 	reader := bufio.NewReader(os.Stdin)
 	selection := -1
 	for selection < 0 {
-		fmt.Printf("\nSelect stream format: [0-%d]: ", len(uris)-1)
+		fmt.Printf(prompt)
 		if inp, _ := reader.ReadString('\n'); inp != "\n" {
 			if i, err := strconv.Atoi(strings.TrimSpace(inp)); err != nil {
 				fmt.Printf("%s is not a valid number...\n", inp)
 				continue
 			} else {
-				if i < 0 || i > len(uris)-1 {
-					fmt.Printf("%s is not in range [0-%d]...\n", inp, len(uris)-1)
+				if i < 0 || i > max {
+					fmt.Printf("%s is not in range [0-%d]...\n", inp, max)
 					continue
 				}
 				selection = i
@@ -187,40 +229,5 @@ func onStream(ctx *cli.Context) error {
 		}
 	}
 
-	fmt.Printf("Loading %s %s (%s)...\n", ctx.Args()[0], uris[selection].Resolution, uris[selection].Quality)
-	if err := mediaPlayer().LoadFromUrl(uris[selection].URI); err != nil {
-		return err
-	}
-	fmt.Printf("Playing %s %s (%s)...\n", ctx.Args()[0], uris[selection].Resolution, uris[selection].Quality)
-	if err := mediaPlayer().Play(); err != nil {
-		return err
-	}
-	if ctx.Bool("fullscreen") {
-		fmt.Println("Entering fullscreen...")
-		if err := mediaPlayer().EnterFullscreen(); err != nil {
-			return err
-		}
-	}
-
-	sigchan := make(chan os.Signal)
-	signal.Notify(sigchan, syscall.SIGABRT, syscall.SIGINT, syscall.SIGTERM)
-	sig := <-sigchan
-	switch sig {
-	case syscall.SIGABRT:
-		fmt.Println("Stream aborted!")
-	case syscall.SIGINT:
-		fmt.Println("Stream interrupted!")
-	case syscall.SIGTERM:
-		fmt.Println("Stream terminated!")
-	}
-
-	return nil
-}
-
-func onList(ctx *cli.Context) error {
-	return fmt.Errorf("Not implemented yet...")
-}
-
-func onSearch(ctx *cli.Context) error {
-	return fmt.Errorf("Not implemented yet...")
+	return selection
 }
