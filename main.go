@@ -10,8 +10,8 @@ import (
 
 	"github.com/urfave/cli"
 
-	"github.com/HCHagen/twitch-player/player"
-	"github.com/HCHagen/twitch-player/twitch"
+	"github.com/hchagen/twitch-player/player"
+	"github.com/hchagen/twitch-player/twitch"
 )
 
 var (
